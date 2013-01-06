@@ -25,6 +25,7 @@
 -export([listen/1]).
 -export([accept/2]).
 -export([connect/3]).
+-export([connect/4]).
 -export([recv/3]).
 -export([send/2]).
 -export([sendfile/2]).
@@ -88,8 +89,32 @@ accept(LSocket, Timeout) ->
 	inet:port_number(), any())
 	-> {ok, inet:socket()} | {error, atom()}.
 connect(Host, Port, Opts) when is_integer(Port) ->
-	gen_tcp:connect(Host, Port,
-		Opts ++ [binary, {active, false}, {packet, raw}]).
+	connect(Host, Port, Opts, infinity).
+
+-spec connect(inet:ip_address() | inet:hostname(),
+	inet:port_number(), any(), timeout())
+	-> {ok, inet:socket()} | {error, atom()}.
+connect(Host, Port, Opts, Timeout) when is_integer(Port) ->
+    %% Hack: try to connect to every IP with given timeout
+    Mod = mod(Opts, Host),
+    case Mod:getaddrs(Host, Timeout) of
+        {ok, IPs} ->
+            try_connect(IPs, Port,
+                        Opts ++ [binary, {active, false}, {packet, raw}],
+                        Timeout, {error, einval});
+        Error ->
+            Error
+    end.
+
+try_connect([IP|IPs], Port, Opts, Timeout, _) ->
+    case gen_tcp:connect(IP, Port, Opts, Timeout) of
+        {ok, _} = Rtr ->
+            Rtr;
+        Err1 ->
+            try_connect(IPs, Port, Opts, Timeout, Err1)
+    end;
+try_connect([], _, _, _, Err) ->
+    Err.
 
 %% @doc Receive data from a socket in passive mode.
 %% @see gen_tcp:recv/3
@@ -153,3 +178,28 @@ sockname(Socket) ->
 -spec close(inet:socket()) -> ok.
 close(Socket) ->
 	gen_tcp:close(Socket).
+
+%% Get the tcp_module, but IPv6 address overrides default IPv4
+mod(Address) ->
+    case inet_db:tcp_module() of
+        inet_tcp when tuple_size(Address) =:= 8 ->
+            inet6_tcp;
+        Mod ->
+            Mod
+    end.
+
+%% Get the tcp_module, but option tcp_module|inet|inet6 overrides
+mod([{tcp_module,Mod}|_], _Address) ->
+    Mod;
+mod([inet|_], _Address) ->
+    inet_tcp;
+mod([inet6|_], _Address) ->
+    inet6_tcp;
+mod([{ip, Address}|Opts], _) ->
+    mod(Opts, Address);
+mod([{ifaddr, Address}|Opts], _) ->
+    mod(Opts, Address);
+mod([_|Opts], Address) ->
+    mod(Opts, Address);
+mod([], Address) ->
+    mod(Address).

@@ -47,6 +47,8 @@
 %% Experimental. Open a connection to the given host and port number.
 -callback connect(string(), inet:port_number(), opts())
 	-> {ok, socket()} | {error, atom()}.
+-callback connect(string(), inet:port_number(), opts(), timeout())
+	-> {ok, socket()} | {error, atom()}.
 
 %% Receive data from a socket in passive mode.
 -callback recv(socket(), non_neg_integer(), timeout())
