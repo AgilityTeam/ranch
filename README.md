@@ -29,6 +29,11 @@ Getting started
 Support
 -------
 
+Please, try to use the official
+[ranch branch](https://github.com/extend/ranch) before reporting any
+bug. If the bug appears on both versions, fell free to contact the
+original developer:
+
  *  Official IRC Channel: #ninenines on irc.freenode.net
  *  [Mailing Lists](http://lists.ninenines.eu)
  *  [Commercial Support](http://ninenines.eu/support)
